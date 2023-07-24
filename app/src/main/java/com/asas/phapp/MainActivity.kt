@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -42,167 +43,59 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .background(color = Color(0xff172732)),
                     color = Color(0xff172732)
-//                    color = MaterialTheme.colors.background
                 ) {
-                    MyScreen()
+                    MainScreen()
                 }
             }
         }
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    PhReaderTheme {
-    }
-}
-
-sealed class Resource<out T> {
-    data class Success<out T>(val data: T) : Resource<T>()
-    data class Error(val exception: Exception) : Resource<Nothing>()
-    object Loading : Resource<Nothing>()
-}
-@Composable
-fun MyScreen() {
-    val pH = remember { mutableStateOf<Resource<Double>>(Resource.Loading) }
-    val pHFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
-    fun refreshValue() {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val response = URL("https://blynk.cloud/external/api/get?token=cLolM734TLYcbjBCCh97oDB1SN9e4g1z&v5").readText()
-                val value = response.toDoubleOrNull() ?: 0.0
-                pHFlow.emit(Resource.Success(value))
-            } catch (e: Exception) {
-                pHFlow.emit(Resource.Error(e))
-            }
+fun refreshValue(pHFlow: MutableStateFlow<Resource<Double>>) {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val response =
+                URL("https://blynk.cloud/external/api/get?token=cLolM734TLYcbjBCCh97oDB1SN9e4g1z&v5").readText()
+            val value = response.toDoubleOrNull() ?: 0.0
+            pHFlow.emit(Resource.Success(value))
+        } catch (e: Exception) {
+            pHFlow.emit(Resource.Error(e))
         }
     }
+}
+
+@Composable
+fun MainScreen() {
+    val context = LocalContext.current
+    val mySharedPreferences = SharedPrefs(context)
+    var city = mySharedPreferences.getTitle()
+    val pH = remember { mutableStateOf<Resource<Double>>(Resource.Loading) }
+    val pHFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
     LaunchedEffect(Unit) {
-        refreshValue()
+        refreshValue(pHFlow)
         pHFlow.collect { pH.value = it }
     }
-
-
+    if(city.isNullOrEmpty()){
+        city = "طرابلس";
+    }
     Column(
         modifier = Modifier
             .background(color = Color(0xff172732))
             .fillMaxWidth()
             .fillMaxHeight(0.25f),
-        verticalArrangement = Arrangement.Center,
+        verticalArrangement = Arrangement.Top,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         when (val resource = pH.value) {
-            is Resource.Success -> MainItem(city = "الزاوية", ph = resource.data)
-            is Resource.Error -> Text(text = "Error: ${resource.exception.message}")
+            is Resource.Success -> MainItem(city = city, ph = resource.data)
+            is Resource.Error -> MainItem(city = city, ph = -1.0)
             is Resource.Loading -> CircularProgressIndicator()
         }
         Spacer(modifier = Modifier.height(16.dp))
-        ListItem(city = "طرابلس", ph = 8.0)
-        Button(onClick = { refreshValue() }) {
+        Button(onClick = { refreshValue(pHFlow) }) {
             Text(text = "Refresh")
         }
     }
 }
 
-
-
-@Composable
-fun MainItem(city: String, ph: Double) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(color = Color(0xff2F405A))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.material_symbols_water_ph),
-                contentDescription = "ph icon",
-                modifier = Modifier.size(80.dp).align(Alignment.CenterVertically)
-            )
-            Text(
-                text = city,
-                style = TextStyle(
-                    fontSize = 64.sp,
-                    fontFamily = FontFamily(Font(R.font.cairo_regular)),
-                    fontWeight = FontWeight(500),
-                    color = Color(0xFFFFFFFF),
-                    textAlign = TextAlign.Center,
-                ),
-                color = Color.White,
-                modifier = Modifier
-                    .padding(16.dp)
-                    .wrapContentSize()
-            )
-
-        }
-        Text(
-            text = "$ph PH معدل",
-            style =TextStyle(
-                fontSize = 40.sp,
-                fontFamily = FontFamily(Font(R.font.cairo_regular)),
-                fontWeight = FontWeight(500),
-            ),
-            color = Color.White,
-            modifier = Modifier
-                .wrapContentSize()
-                .align(Alignment.CenterHorizontally)
-        )
-    }
-}
-
-@Composable
-fun ListItem(city: String, ph: Double) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(8.dp)
-            .background(color = Color(0xff2F405A), shape = RoundedCornerShape(32.dp))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
-        ) {
-//            Image(
-//                painter = painterResource(id = R.drawable.game_icons_h2o),
-//                contentDescription = "nice icon for the app",
-//                modifier = Modifier.size(80.dp).align(Alignment.CenterVertically)
-//            )
-            Spacer(Modifier.width(50.dp))
-            Text(
-                text = city,
-                style = TextStyle(
-                    fontSize = 40.sp,
-                    fontFamily = FontFamily(Font(R.font.cairo_regular)),
-                    fontWeight = FontWeight(500),
-                    color = Color(0xFFFFFFFF),
-                    textAlign = TextAlign.Right,
-                ),
-                color = Color.White,
-                modifier = Modifier
-                    .padding(end = 16.dp)
-                    .wrapContentSize()
-            )
-
-        }
-        Text(
-            text = "$ph PH معدل",
-            style = TextStyle(
-                fontSize = 30.sp,
-                fontFamily = FontFamily(Font(R.font.cairo_regular)),
-                fontWeight = FontWeight(500),
-            ),
-            color = Color.White,
-            modifier = Modifier
-                .wrapContentSize()
-                .align(Alignment.CenterHorizontally)
-                .padding(bottom = 16.dp)
-        )
-    }
-}
 
