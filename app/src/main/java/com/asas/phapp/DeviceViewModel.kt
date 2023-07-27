@@ -1,54 +1,45 @@
 package com.asas.phapp
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+
 class DeviceViewModel(private val dao: PHDao) : ViewModel() {
-    private val _state = MutableStateFlow(DeviceState())
+    private val _readings = MutableStateFlow<List<Reading>>(emptyList())
+    init {
+        getReadings()
+    }
 
+    fun logData() {
+        Log.d("datum",_readings.value.toString())
+    }
+    fun addReading(place: String, reading: Double) {
+        if (place.isBlank()) {
+            viewModelScope.launch {
+                dao.insert(Reading(place = "طرابلس", reading = reading))
+            }
+        }
+        viewModelScope.launch {
+            dao.insert(Reading(place = place, reading = 0.0))
+        }
+    }
 
-    fun onEvent(event: DeviceEvent) {
-        when (event) {
-            DeviceEvent.HideDialog -> {
-                _state.update {
-                    it.copy(
-                        isAddingDevice = false
-                    )
-                }
+    fun getReadings(): List<Reading> {
+        viewModelScope.launch {
+            dao.getAll().collect { devices ->
+                _readings.value = devices
             }
-            DeviceEvent.SaveDevice -> {
-                val place = _state.value.place
-                val token = _state.value.token
-                if (place.isBlank() || token.isBlank()) {
-                    return
-                }
-                viewModelScope.launch {
-                    dao.insert(Device(id = 0, place = place, token = token))
-                }
-            }
-            is DeviceEvent.SetPlace -> {
-                _state.update {
-                    it.copy(
-                        place = event.place
-                    )
-                }
-            }
-            is DeviceEvent.SetToken -> {
-                _state.update {
-                    it.copy(
-                        token = event.token
-                    )
-                }
-            }
-            DeviceEvent.ShowDialog -> {
-                _state.update {
-                    it.copy(
-                        isAddingDevice = true
-                    )
-                }
+        }
+        logData()
+        return _readings.value
+    }
+    fun deleteAll(){
+        viewModelScope.launch {
+            for(reading in _readings.value){
+                dao.delete(reading)
             }
         }
     }

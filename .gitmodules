@@ -1,0 +1,3 @@
+[submodule "Phreader-arduino"]
+	path = Phreader-arduino
+	url = https://github.com/T4gamer/Phreader-arduino.git

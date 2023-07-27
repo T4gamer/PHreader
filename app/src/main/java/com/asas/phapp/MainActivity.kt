@@ -1,38 +1,47 @@
 package com.asas.phapp
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
+import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.room.Room
 import com.asas.phapp.ui.theme.PhReaderTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import java.net.URL
 
 class MainActivity : ComponentActivity() {
+    private val db by lazy {
+        Room.databaseBuilder(
+            applicationContext, PHDatabase::class.java, "ph.db"
+        ).build()
+    }
+    private val viewModel by viewModels<DeviceViewModel>(factoryProducer = {
+        object : ViewModelProvider.Factory {
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return DeviceViewModel(db.PHDao()) as T
+            }
+        }
+    })
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -44,7 +53,7 @@ class MainActivity : ComponentActivity() {
                         .background(color = Color(0xff172732)),
                     color = Color(0xff172732)
                 ) {
-                    MainScreen()
+                    MainScreen(viewModel)
                 }
             }
         }
@@ -53,49 +62,94 @@ class MainActivity : ComponentActivity() {
 
 fun refreshValue(pHFlow: MutableStateFlow<Resource<Double>>) {
     CoroutineScope(Dispatchers.IO).launch {
-        try {
-            val response =
-                URL("https://blynk.cloud/external/api/get?token=cLolM734TLYcbjBCCh97oDB1SN9e4g1z&v5").readText()
-            val value = response.toDoubleOrNull() ?: 0.0
-            pHFlow.emit(Resource.Success(value))
-        } catch (e: Exception) {
-            pHFlow.emit(Resource.Error(e))
+        while (true) {
+            try {
+                pHFlow.emit(Resource.Loading)
+                val response = URL("http://192.168.4.1:80/value1").readText()
+                val value = response.toDoubleOrNull() ?: 0.0
+                pHFlow.emit(Resource.Success(value))
+            } catch (e: Exception) {
+                pHFlow.emit(Resource.Error(e))
+            }
+            delay(500)
         }
     }
 }
 
+
 @Composable
-fun MainScreen() {
-    val context = LocalContext.current
-    val mySharedPreferences = SharedPrefs(context)
-    var city = mySharedPreferences.getTitle()
-    val pH = remember { mutableStateOf<Resource<Double>>(Resource.Loading) }
+fun MainScreen(viewModel: DeviceViewModel) {
+
+    var readings = remember { viewModel.getReadings() }
     val pHFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
+    var place by remember { mutableStateOf("") }
+    var showDialog by remember { mutableStateOf(false) }
+    Log.d("datumR", readings.toString())
+
     LaunchedEffect(Unit) {
         refreshValue(pHFlow)
-        pHFlow.collect { pH.value = it }
     }
-    if(city.isNullOrEmpty()){
-        city = "طرابلس";
-    }
-    Column(
-        modifier = Modifier
-            .background(color = Color(0xff172732))
-            .fillMaxWidth()
-            .fillMaxHeight(0.25f),
-        verticalArrangement = Arrangement.Top,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        when (val resource = pH.value) {
-            is Resource.Success -> MainItem(city = city, ph = resource.data)
-            is Resource.Error -> MainItem(city = city, ph = -1.0)
-            is Resource.Loading -> CircularProgressIndicator()
+
+    Scaffold(backgroundColor = Color(0xff172732), floatingActionButton = {
+        FloatingActionButton(
+            onClick = { showDialog = true },
+            backgroundColor = Color.Blue,
+            contentColor = Color.White
+        ) {
+            Icon(Icons.Filled.Add, "")
         }
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { refreshValue(pHFlow) }) {
-            Text(text = "Refresh")
+    }, content = { padding ->
+        Column(
+            modifier = Modifier
+                .background(color = Color(0xff172732))
+                .fillMaxWidth()
+                .fillMaxHeight()
+                .padding(padding),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            when (val resource = pHFlow.collectAsState().value) {
+                is Resource.Success -> MainItem(city = "القراءه الحالية", ph = resource.data)
+                is Resource.Error -> MainItem(city = "القرءاه الحالية", ph = -1.0)
+                is Resource.Loading -> CircularProgressIndicator()
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            LazyColumn {
+                items(readings) { reading ->
+                    ListItem(reading.place, reading.reading)
+                }
+            }
         }
+    })
+
+
+    if (showDialog) {
+        AlertDialog(onDismissRequest = { showDialog = false },
+            title = { Text(text = "add Device") },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.addReading(place, 0.0)
+                    showDialog = false
+                }) {
+                    Text(text = "اضف الجهاز")
+                }
+            },
+            dismissButton = {
+                Button(onClick = { showDialog = false }) {
+                    Text(text = "الغاء")
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    OutlinedTextField(value = place,
+                        onValueChange = { place = it },
+                        label = { Text(text = "المكان") })
+                }
+            })
     }
 }
+
 
 
