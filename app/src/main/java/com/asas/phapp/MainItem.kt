@@ -5,6 +5,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.Button
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,7 +25,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MainItem(city: String, ph: Double) {
+fun MainItem(ph: String, temp: String, onRefresh: () -> Unit) {
+    val city = "القراءه الحالية"
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -41,30 +44,60 @@ fun MainItem(city: String, ph: Double) {
                     .align(Alignment.CenterVertically)
             )
             Text(
-                text = "$city", style = TextStyle(
+                text = "$city",
+                style = TextStyle(
                     fontSize = 64.sp,
                     fontFamily = FontFamily(Font(R.font.cairo_regular)),
                     fontWeight = FontWeight(500),
                     color = Color(0xFFFFFFFF),
                     textAlign = TextAlign.Center,
-                ), color = Color.White, modifier = Modifier
+                ),
+                color = Color.White,
+                modifier = Modifier
                     .padding(16.dp)
                     .wrapContentSize()
-                    .combinedClickable(onLongClick = { }, onClick = {}),
+                    .combinedClickable(onLongClick = onRefresh, onClick = onRefresh),
             )
 
         }
-        Text(
-            text = "$ph PH معدل",
-            style = TextStyle(
-                fontSize = 40.sp,
-                fontFamily = FontFamily(Font(R.font.cairo_regular)),
-                fontWeight = FontWeight(500),
-            ),
-            color = Color.White,
-            modifier = Modifier
-                .wrapContentSize()
-                .align(Alignment.CenterHorizontally)
-        )
+        when (ph) {
+            "error" -> Column(
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("connection failed")
+                Button(onClick = onRefresh) {
+                    Text(text = "try again")
+                }
+            }
+            "-1.0" -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            else -> {
+                Text(
+                    text = "$ph PH معدل",
+                    style = TextStyle(
+                        fontSize = 40.sp,
+                        fontFamily = FontFamily(Font(R.font.cairo_regular)),
+                        fontWeight = FontWeight(500),
+                    ),
+                    color = Color.White,
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .align(Alignment.CenterHorizontally)
+                )
+                Text(
+                    text = "$temp درجة الحرارة ",
+                    style = TextStyle(
+                        fontSize = 40.sp,
+                        fontFamily = FontFamily(Font(R.font.cairo_regular)),
+                        fontWeight = FontWeight(500),
+                    ),
+                    color = Color.White,
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .align(Alignment.CenterHorizontally)
+                )
+            }
+        }
     }
 }

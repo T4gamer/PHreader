@@ -8,5 +8,6 @@ import androidx.room.PrimaryKey
 data class Reading(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     @ColumnInfo(name = "reading") val reading: Double,
+    @ColumnInfo(name = "temperature") val temp: Double,
     @ColumnInfo(name = "place") val place: String
 )

@@ -1,7 +1,6 @@
 package com.asas.phapp
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -34,6 +33,8 @@ class MainActivity : ComponentActivity() {
             applicationContext, PHDatabase::class.java, "ph.db"
         ).build()
     }
+
+    @Suppress("UNCHECKED_CAST")
     private val viewModel by viewModels<DeviceViewModel>(factoryProducer = {
         object : ViewModelProvider.Factory {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -60,16 +61,19 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun refreshValue(pHFlow: MutableStateFlow<Resource<Double>>) {
+fun refreshValue(pHFlow: MutableStateFlow<Resource<Double>>, tempFlow: MutableStateFlow<Resource<Double>>) {
     CoroutineScope(Dispatchers.IO).launch {
         while (true) {
             try {
-                pHFlow.emit(Resource.Loading)
-                val response = URL("http://192.168.4.1:80/value1").readText()
-                val value = response.toDoubleOrNull() ?: 0.0
-                pHFlow.emit(Resource.Success(value))
+                val response1 = URL("http://192.168.4.1/value1").readText()
+                val response2 = URL("http://192.168.4.1/value2").readText()
+                val value1 = response1.toDouble()
+                val value2 = response2.toDouble()
+                pHFlow.emit(Resource.Success(value1))
+                tempFlow.emit(Resource.Success(value2))
             } catch (e: Exception) {
                 pHFlow.emit(Resource.Error(e))
+                tempFlow.emit(Resource.Error(e))
             }
             delay(500)
         }
@@ -79,15 +83,19 @@ fun refreshValue(pHFlow: MutableStateFlow<Resource<Double>>) {
 
 @Composable
 fun MainScreen(viewModel: DeviceViewModel) {
-
-    var readings = remember { viewModel.getReadings() }
-    val pHFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
+    //State Controll
     var place by remember { mutableStateOf("") }
     var showDialog by remember { mutableStateOf(false) }
-    Log.d("datumR", readings.toString())
+    //realTime Readings
+    val phFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
+    val tempFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
+    val ph = phFlow.collectAsState()
+    val temp = tempFlow.collectAsState()
+    var lastPh = remember { 0.0 }
+    var lastTemp = remember { 0.0 }
 
     LaunchedEffect(Unit) {
-        refreshValue(pHFlow)
+        refreshValue(phFlow, tempFlow)
     }
 
     Scaffold(backgroundColor = Color(0xff172732), floatingActionButton = {
@@ -96,7 +104,8 @@ fun MainScreen(viewModel: DeviceViewModel) {
             backgroundColor = Color.Blue,
             contentColor = Color.White
         ) {
-            Icon(Icons.Filled.Add, "")
+//            Icon(Icons.Filled.Add, "")
+            Text("أخذ قراءة")
         }
     }, content = { padding ->
         Column(
@@ -108,27 +117,43 @@ fun MainScreen(viewModel: DeviceViewModel) {
             verticalArrangement = Arrangement.Top,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            when (val resource = pHFlow.collectAsState().value) {
-                is Resource.Success -> MainItem(city = "القراءه الحالية", ph = resource.data)
-                is Resource.Error -> MainItem(city = "القرءاه الحالية", ph = -1.0)
-                is Resource.Loading -> CircularProgressIndicator()
+            when {
+                ph.value is Resource.Success ->{
+                    lastPh = (ph.value as Resource.Success).data
+                    lastTemp = (temp.value as Resource.Success).data
+                    MainItem(ph = "$lastPh", temp = "$lastTemp") {
+                        refreshValue(phFlow, tempFlow)
+                    }
+                }
+                ph.value is Resource.Error && temp.value is Resource.Error -> {
+                    MainItem(ph = "error", temp = temp.value.toString()){
+                        refreshValue(phFlow, tempFlow)
+                    }
+                }
+                ph.value is Resource.Loading || temp.value is Resource.Loading -> {
+                    MainItem(ph = "-1.0", temp = "-1.0"){
+                        refreshValue(phFlow, tempFlow)
+                    }
+                }
             }
+
             Spacer(modifier = Modifier.height(16.dp))
             LazyColumn {
-                items(readings) { reading ->
-                    ListItem(reading.place, reading.reading)
+                items(viewModel.readings.value) { reading ->
+                    ListItem(reading) {
+                        viewModel.delete(reading)
+                    }
                 }
             }
         }
     })
 
-
     if (showDialog) {
         AlertDialog(onDismissRequest = { showDialog = false },
-            title = { Text(text = "add Device") },
+            title = { Text(text = "إضافة جهاز") },
             confirmButton = {
                 Button(onClick = {
-                    viewModel.addReading(place, 0.0)
+                    viewModel.addReading(place, lastPh,lastTemp)
                     showDialog = false
                 }) {
                     Text(text = "اضف الجهاز")

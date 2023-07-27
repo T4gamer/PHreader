@@ -3,7 +3,11 @@ package com.asas.phapp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun ListItem(city: String, ph: Double) {
+fun ListItem(reading:Reading, onDelete:()->Unit) {
+    val city = reading.place
+    val ph = reading.reading
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -26,8 +32,15 @@ fun ListItem(city: String, ph: Double) {
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = Color.Red,
+                )
+            }
 //            Image(
 //                painter = painterResource(id = R.drawable.game_icons_h2o),
 //                contentDescription = "nice icon for the app",
