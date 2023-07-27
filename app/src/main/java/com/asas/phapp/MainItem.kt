@@ -63,7 +63,7 @@ fun MainItem(ph: String, temp: String, onRefresh: () -> Unit) {
         when (ph) {
             "error" -> Column(
                 modifier = Modifier.fillMaxWidth(),
-                Arrangement.Center
+                verticalArrangement = Arrangement.Center
             ) {
                 Text("connection failed")
                 Button(onClick = onRefresh) {

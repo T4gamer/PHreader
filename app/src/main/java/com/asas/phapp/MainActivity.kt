@@ -158,7 +158,7 @@ fun MainScreen(viewModel: DeviceViewModel) {
 
     if (showDialog) {
         AlertDialog(onDismissRequest = { showDialog = false },
-            title = { Text(text = "إضافة جهاز") },
+            title = { Text(text = "إضافة قراءه") },
             confirmButton = {
                 Button(onClick = {
                     viewModel.addReading(place, lastPh, lastTemp)
