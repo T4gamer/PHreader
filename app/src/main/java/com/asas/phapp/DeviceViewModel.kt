@@ -11,14 +11,17 @@ import kotlinx.coroutines.launch
 
 class DeviceViewModel(private val dao: PHDao) : ViewModel() {
     private val _readings = MutableStateFlow<List<Reading>>(emptyList())
+    private val _places = MutableStateFlow<List<String>>(emptyList())
     val readings: StateFlow<List<Reading>> = _readings.asStateFlow()
+    val places: StateFlow<List<String>> = _places.asStateFlow()
 
     init {
         getReadings()
     }
-    fun addReading(place: String, reading: Double ,temp:Double) {
+
+    fun addReading(place: String, reading: Double, temp: Double) {
         viewModelScope.launch {
-            val read = Reading(place = place, reading = reading , temp =temp)
+            val read = Reading(place = place, reading = reading, temp = temp)
             dao.insert(read)
         }
     }
@@ -26,23 +29,26 @@ class DeviceViewModel(private val dao: PHDao) : ViewModel() {
     fun getReadings(): List<Reading> {
         viewModelScope.launch {
             dao.getAll().collect { readings ->
+                val names = readings.map { it.place }
                 _readings.emit(readings)
-                Log.d("datumReal",readings.toString())
+                _places.emit(names.toSet().toList())
             }
         }
-        Log.d("datumReading",_readings.value.toString())
         return _readings.value
     }
-    fun deleteAll(){
+
+    fun deleteAll() {
         viewModelScope.launch {
-            for(reading in _readings.value){
+            for (reading in _readings.value) {
                 dao.delete(reading)
             }
         }
     }
-    fun delete(reading :Reading){
+
+    fun delete(reading: Reading) {
         viewModelScope.launch {
             dao.delete(reading)
         }
+        getReadings()
     }
 }

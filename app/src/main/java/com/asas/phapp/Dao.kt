@@ -12,6 +12,9 @@ interface PHDao {
     @Query("SELECT * FROM Readings")
     fun getAll(): Flow<List<Reading>>
 
+    @Query("SELECT * FROM Readings WHERE place = :name")
+    fun getByName(name: String): List<Reading>
+
     @Insert
     suspend fun insert(entity: Reading)
 
