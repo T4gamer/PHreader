@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Button
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +26,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun MainItem(ph: String, temp: String, onRefresh: () -> Unit) {
+fun MainItem(ph: String, temp: String, onRefresh: () -> Unit,onRest:()->Unit) {
     val city = "القراءه الحالية"
     Column(
         modifier = Modifier
@@ -56,9 +57,8 @@ fun MainItem(ph: String, temp: String, onRefresh: () -> Unit) {
                 modifier = Modifier
                     .padding(16.dp)
                     .wrapContentSize()
-                    .combinedClickable(onLongClick = onRefresh, onClick = onRefresh),
+                    .combinedClickable(onLongClick = onRest, onClick = onRefresh),
             )
-
         }
         when (ph) {
             "error" -> Column(

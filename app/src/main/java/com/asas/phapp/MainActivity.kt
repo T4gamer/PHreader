@@ -80,6 +80,15 @@ fun refreshValue(
     }
 }
 
+fun REST() {
+    CoroutineScope(Dispatchers.IO).launch {
+        try {
+            val response = URL("http://192.168.4.1/rest").readText()
+        } catch (e: Exception) {
+        }
+    }
+}
+
 
 @Composable
 fun MainScreen(viewModel: DeviceViewModel) {
@@ -87,7 +96,7 @@ fun MainScreen(viewModel: DeviceViewModel) {
     var showDialog by remember { mutableStateOf(false) }
     var place by remember { mutableStateOf("") }
     //list of places
-    val places = remember {viewModel.places}
+    val places = remember { viewModel.places }
     //realTime Readings
     val phFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
     val tempFlow = remember { MutableStateFlow<Resource<Double>>(Resource.Loading) }
@@ -123,19 +132,22 @@ fun MainScreen(viewModel: DeviceViewModel) {
                 ph.value is Resource.Success -> {
                     lastPh = (ph.value as Resource.Success).data
                     lastTemp = (temp.value as Resource.Success).data
-                    MainItem(ph = "$lastPh", temp = "$lastTemp") {
-                        refreshValue(phFlow, tempFlow)
-                    }
+                    MainItem(ph = "$lastPh",
+                        temp = "$lastTemp",
+                        onRest = { REST() },
+                        onRefresh = { refreshValue(phFlow, tempFlow) })
                 }
                 ph.value is Resource.Error && temp.value is Resource.Error -> {
-                    MainItem(ph = "error", temp = temp.value.toString()) {
-                        refreshValue(phFlow, tempFlow)
-                    }
+                    MainItem(ph = "error",
+                        temp = temp.value.toString(),
+                        onRest = { REST() },
+                        onRefresh = { refreshValue(phFlow, tempFlow) })
                 }
                 ph.value is Resource.Loading || temp.value is Resource.Loading -> {
-                    MainItem(ph = "-1.0", temp = "-1.0") {
-                        refreshValue(phFlow, tempFlow)
-                    }
+                    MainItem(ph = "-1.0",
+                        temp = "-1.0",
+                        onRest = { REST() },
+                        onRefresh = { refreshValue(phFlow, tempFlow) })
                 }
             }
 
@@ -143,12 +155,12 @@ fun MainScreen(viewModel: DeviceViewModel) {
             LazyColumn {
                 items(places.value) { city ->
                     val valueList = mutableListOf<Reading>()
-                    for (read in viewModel.readings.collectAsState().value){
-                        if(read.place == city){
+                    for (read in viewModel.readings.collectAsState().value) {
+                        if (read.place == city) {
                             valueList.add(read)
                         }
                     }
-                    CityItem(_readingList = valueList as List<Reading>){
+                    CityItem(_readingList = valueList as List<Reading>) {
                         viewModel.delete(valueList.last())
                     }
                 }
@@ -164,7 +176,7 @@ fun MainScreen(viewModel: DeviceViewModel) {
                     viewModel.addReading(place, lastPh, lastTemp)
                     showDialog = false
                 }) {
-                    Text(text = "اضف الجهاز")
+                    Text(text = "اضف قراءه")
                 }
             },
             dismissButton = {
@@ -176,7 +188,7 @@ fun MainScreen(viewModel: DeviceViewModel) {
                 Column(
                     modifier = Modifier.padding(16.dp)
                 ) {
-                    OutlinedTextField(value = place, onValueChange = {place = it})
+                    OutlinedTextField(value = place, onValueChange = { place = it })
                 }
             })
     }
